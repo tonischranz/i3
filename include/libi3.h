@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include <xcb/xcb_keysyms.h>
@@ -292,6 +293,12 @@ size_t i3string_get_num_glyphs(i3String *str);
  *
  */
 int ipc_connect(const char *socket_path);
+
+/**
+ * Connects to the socket at the given path with no fallback paths. Returns
+ * -1 if connect() fails and die()s for other errors.
+ */
+int ipc_connect_impl(const char *socket_path);
 
 /**
  * Formats a message (payload) of the given size and type and sends it to i3 via
@@ -612,6 +619,11 @@ color_t draw_util_hex_to_color(const char *color);
 void draw_util_text(i3String *text, surface_t *surface, color_t fg_color, color_t bg_color, int x, int y, int max_width);
 
 /**
+ * Draw the given image using libi3.
+ */
+void draw_util_image(cairo_surface_t *image, surface_t *surface, int x, int y, int width, int height);
+
+/**
  * Draws a filled rectangle.
  * This function is a convenience wrapper and takes care of flushing the
  * surface as well as restoring the cairo state.
@@ -655,3 +667,22 @@ int create_socket(const char *filename, char **out_socketpath);
  *
  */
 bool path_exists(const char *path);
+
+/**
+ * Grab a screenshot of the screen's root window and set it as the wallpaper.
+ */
+void set_screenshot_as_wallpaper(xcb_connection_t *conn, xcb_screen_t *screen);
+
+/**
+ * Test whether the screen's root window has a background set.
+ *
+ * This opens & closes a window and test whether the root window still shows the
+ * content of the window.
+ */
+bool is_background_set(xcb_connection_t *conn, xcb_screen_t *screen);
+
+/**
+ * Reports whether str represents the enabled state (1, yes, true, …).
+ *
+ */
+bool boolstr(const char *str);

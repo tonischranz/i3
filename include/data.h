@@ -9,12 +9,15 @@
  */
 #pragma once
 
+#define PCRE2_CODE_UNIT_WIDTH 8
+
 #define SN_API_NOT_YET_FROZEN 1
 #include <libsn/sn-launcher.h>
 
 #include <xcb/randr.h>
-#include <pcre.h>
+#include <pcre2.h>
 #include <sys/time.h>
+#include <cairo/cairo.h>
 
 #include "queue.h"
 
@@ -58,9 +61,11 @@ typedef enum { NO_ORIENTATION = 0,
                VERT } orientation_t;
 typedef enum { BEFORE,
                AFTER } position_t;
-typedef enum { BS_NORMAL = 0,
-               BS_NONE = 1,
-               BS_PIXEL = 2 } border_style_t;
+typedef enum {
+    BS_NONE = 0,
+    BS_PIXEL = 1,
+    BS_NORMAL = 2,
+} border_style_t;
 
 /** parameter to specify whether tree_close_internal() and x_window_kill() should kill
  * only this specific window or the whole X11 client */
@@ -247,8 +252,7 @@ struct Startup_Sequence {
  */
 struct regex {
     char *pattern;
-    pcre *regex;
-    pcre_extra *extra;
+    pcre2_code *regex;
 };
 
 /**
@@ -471,6 +475,9 @@ struct Window {
     double min_aspect_ratio;
     double max_aspect_ratio;
 
+    /** Window icon, as Cairo surface */
+    cairo_surface_t *icon;
+
     /** The window has a nonrectangular shape. */
     bool shaped;
     /** The window has a nonrectangular input shape. */
@@ -526,6 +533,7 @@ struct Match {
            WM_FLOATING_USER,
            WM_FLOATING } window_mode;
     Con *con_id;
+    bool match_all_windows;
 
     /* Where the window looking for a match should be inserted:
      *
@@ -656,6 +664,11 @@ struct Con {
     /** The format with which the window's name should be displayed. */
     char *title_format;
 
+    /** Whether the window icon should be displayed, and with what padding. -1
+     * means display no window icon (default behavior), 0 means display without
+     * any padding, 1 means display with 1 pixel of padding and so on. */
+    int window_icon_padding;
+
     /* a sticky-group is an identifier which bundles several containers to a
      * group. The contents are shared between all of them, that is they are
      * displayed on whichever of the containers is currently visible */
@@ -710,7 +723,16 @@ struct Con {
      * layout in workspace_layout and creates a new split container with that
      * layout whenever a new container is attached to the workspace. */
     layout_t layout, last_split_layout, workspace_layout;
+
     border_style_t border_style;
+    /* When the border style of a con changes because of motif hints, we don't
+     * want to set more decoration that the user wants. The user's preference is determined by these:
+     * 1. For new tiling windows, as set by `default_border`
+     * 2. For new floating windows, as set by `default_floating_border`
+     * 3. For all windows that the user runs the `border` command, whatever is
+     * the result of that command for that window. */
+    border_style_t max_user_border_style;
+
     /** floating? (= not in tiling layout) This cannot be simply a bool
      * because we want to keep track of whether the status was set by the
      * application (by setting _NET_WM_WINDOW_TYPE appropriately) or by the

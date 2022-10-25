@@ -235,9 +235,9 @@ static void dump_rect(yajl_gen gen, const char *name, Rect r) {
     ystr(name);
     y(map_open);
     ystr("x");
-    y(integer, r.x);
+    y(integer, (int32_t)r.x);
     ystr("y");
-    y(integer, r.y);
+    y(integer, (int32_t)r.y);
     ystr("width");
     y(integer, r.width);
     ystr("height");
@@ -497,6 +497,9 @@ void dump_node(yajl_gen gen, struct Con *con, bool inplace_restart) {
         ystr("title_format");
         ystr(con->title_format);
     }
+
+    ystr("window_icon_padding");
+    y(integer, con->window_icon_padding);
 
     if (con->type == CT_WORKSPACE) {
         ystr("num");
@@ -1040,6 +1043,17 @@ IPC_HANDLER(get_version) {
     ystr("loaded_config_file_name");
     ystr(current_configpath);
 
+    ystr("included_config_file_names");
+    y(array_open);
+    IncludedFile *file;
+    TAILQ_FOREACH (file, &included_files, files) {
+        if (file == TAILQ_FIRST(&included_files)) {
+            /* Skip the first file, which is current_configpath. */
+            continue;
+        }
+        ystr(file->path);
+    }
+    y(array_close);
     y(map_close);
 
     const unsigned char *payload;
@@ -1222,7 +1236,22 @@ IPC_HANDLER(get_config) {
     y(map_open);
 
     ystr("config");
-    ystr(current_config);
+    IncludedFile *file = TAILQ_FIRST(&included_files);
+    ystr(file->raw_contents);
+
+    ystr("included_configs");
+    y(array_open);
+    TAILQ_FOREACH (file, &included_files, files) {
+        y(map_open);
+        ystr("path");
+        ystr(file->path);
+        ystr("raw_contents");
+        ystr(file->raw_contents);
+        ystr("variable_replaced_contents");
+        ystr(file->variable_replaced_contents);
+        y(map_close);
+    }
+    y(array_close);
 
     y(map_close);
 
